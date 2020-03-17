@@ -1,0 +1,143 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+</head>
+<body>
+    <video id="localVideo" autoplay muted playsinline style="width:300px;height:300px"></video>
+    <video id="remoteVideo" autoplay playsinline style="width:300px;height:300px"></video>
+    <br />
+    <button onclick="start()"> 1- Start</button><br />
+    <button onclick="CreateRTCPeerConnection1()"> 2- Create RTCPeerConnection pc1</button><br />
+    <button onclick="CreateRTCPeerConnection2()"> 2- Create RTCPeerConnection pc2</button><br />
+    <button onclick="Pc1_CreateOffer()"> 3- pc1 CreateOffer</button><br />
+    <button onclick="pc2_setRemoteDescription()"> 4- pc2.setRemoteDescription</button><br />
+    <button onclick="pc1_setLocalDescription()"> 5- pc1.setLocalDescription</button><br />
+    <button onclick="pc2_createAnswer()"> 6- pc2.createAnswer</button><br />
+    <button onclick="pc1_setRemoteDescription()"> 7- pc1.setRemoteDescription</button><br />
+    <button onclick="pc2_setLocalDescription()"> 8- pc2.setLocalDescription</button><br />
+
+    <script type="text/javascript">
+        var localStream;
+        var pc1;
+        var pc1desc;
+        var pc2desc;
+        var pc2;
+        var offerOptions = {
+            offerToReceiveAudio: 1,
+            offerToReceiveVideo: 1
+        };
+
+        var localVideo = document.getElementById('localVideo');
+        var remoteVideo = document.getElementById('remoteVideo');
+
+        function start() {
+            navigator.mediaDevices.getUserMedia({
+                video: true
+            })
+                .then(function (stream) {
+                    localVideo.srcObject = stream;
+                    localStream = stream;
+                })
+                .catch(function (e) {
+                    alert('getUserMedia() error: ' + e.name);
+                });
+        }
+
+        function CreateRTCPeerConnection1() {
+
+            pc1 = new RTCPeerConnection(null);
+            pc1.onicecandidate = function (e) {
+                console.log('pc1 onicecandidate');
+                console.log(e.candidate);
+                if (e.candidate) {
+                    pc2.addIceCandidate(e.candidate).then(function () { console.log('pc2.addIceCandidate ok'); }
+                        ,
+                        function (err) { console.log('pc2.addIceCandidate err ' + err); })
+                }
+            }
+
+            for (const track of localStream.getTracks()) {
+                console.log('addTrack');
+                console.log(track);
+                pc1.addTrack(track, localStream);
+            };
+            pc1.oniceconnectionstatechange = function (e) { console.log('pc1.oniceconnectionstatechange'); console.log(e); };
+        }
+
+        function CreateRTCPeerConnection2() {
+            pc2 = new RTCPeerConnection(null);
+            pc2.onicecandidate = function (e) {
+                console.log('pc2 onicecandidate');
+                console.log(e.candidate);
+                if (e.candidate) {
+                    pc1.addIceCandidate(e.candidate).then(
+                        function () { console.log('pc1.addIceCandidate ok'); }
+                        , function (err) { console.log('pc1.addIceCandidate err ' + err); });
+                }
+            };
+            pc2.ontrack = function (e) {
+                console.log('ontrack');
+                console.log(e);
+                remoteVideo.srcObject = e.streams[0]
+            }
+            pc2.oniceconnectionstatechange = function (e) { console.log('pc2.oniceconnectionstatechange'); console.log(e); };
+        }
+
+        function Pc1_CreateOffer() {
+            pc1.createOffer(
+                offerOptions
+            ).then(function (desc) {
+                console.log('createOffer ok');
+                pc1desc = desc;
+            }, function (err) {
+                console.log('createOffer err ' + err);
+            });
+        }
+
+        function pc2_setRemoteDescription() {
+            pc2.setRemoteDescription(pc1desc).then(function () {
+                console.log('pc2.setRemoteDescription ok');
+            }, function (err) {
+                console.log('pc2.setRemoteDescription err ' + err);
+            });
+        }
+
+        function pc1_setLocalDescription() {
+            pc1.setLocalDescription(pc1desc).then(function () {
+                console.log('pc1.setLocalDescription');
+            }, function (err) {
+                console.log('pc1.setLocalDescription err ' + err);
+            });
+        }
+
+        function pc2_createAnswer() {
+            pc2.createAnswer().then(
+                function (desc) {
+                    console.log('pc2.createAnswer ok');
+                    pc2desc = desc;
+                }
+                ,
+                function (err) { console.log('pc2.createAnswer err ' + err); })
+        }
+
+        function pc2_setLocalDescription() {
+            pc2.setLocalDescription(pc2desc).then(function () {
+                console.log('pc2.setLocalDescription ok');
+            }, function (err) {
+                console.log('pc2.setLocalDescription err ' + err);
+            });
+        }
+
+        function pc1_setRemoteDescription() {
+            pc1.setRemoteDescription(pc2desc).then(function () {
+                console.log('pc1.setRemoteDescription ok');
+            }, function (err) {
+                console.log('pc1.setRemoteDescription err ' + err);
+            });
+        }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+</head>
+<body>
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+    <br />
+    <button id="startButton">Start</button>
+    <button id="callButton">Call</button>
+    <script type="text/javascript">
+        var localStream;
+        var pc1;
+        var pc2;
+        var offerOptions = {
+            offerToReceiveAudio: 1,
+            offerToReceiveVideo: 1
+        };
+
+        var startButton = document.getElementById('startButton');
+        var callButton = document.getElementById('callButton');
+        var localVideo = document.getElementById('localVideo');
+        var remoteVideo = document.getElementById('remoteVideo');
+        startButton.onclick = start;
+        callButton.onclick = call;
+
+        function start() {
+            navigator.mediaDevices.getUserMedia({              
+                video: true
+            })
+                .then(function (stream) {
+                    localVideo.srcObject = stream;
+                    localStream = stream;
+                })
+                .catch(function (e) {
+                    alert('getUserMedia() error: ' + e.name);
+                });
+        }
+
+        function call() {
+            pc1 = new RTCPeerConnection(null);
+            pc1.onicecandidate = function (e) {
+                console.log('pc1 onicecandidate'); 
+                console.log(e.candidate);
+                if (e.candidate) {
+                    pc2.addIceCandidate(e.candidate).then(function () { console.log('pc2.addIceCandidate ok');  }, function (err) { });
+                }
+            };
+            pc2 = new RTCPeerConnection(null);
+            pc2.onicecandidate = function (e) {
+                console.log('pc2 onicecandidate');
+                console.log(e.candidate);
+                if (e.candidate) {
+                    pc1.addIceCandidate(e.candidate).then(function () { console.log('pc1.addIceCandidate ok');}, function (err) { });
+                }
+                
+            };
+            pc1.oniceconnectionstatechange = function (e) {
+                console.log('pc1.oniceconnectionstatechange');
+                console.log(e);
+            };
+            pc2.oniceconnectionstatechange = function (e) { console.log('pc2.oniceconnectionstatechange'); console.log(e);};
+
+            //pc1.addStream(localStream); // obsolete 
+            for (const track of localStream.getTracks()) {
+                console.log('addTrack');
+                console.log(track);
+                pc1.addTrack(track, localStream);
+            };
+            //pc2.onaddstream = function (e) { remoteVideo.srcObject = e.stream; }; // obsolete 
+            pc2.ontrack = function (e) {
+                console.log('ontrack');
+                console.log(e);
+                remoteVideo.srcObject = e.streams[0]
+            }
+            pc1.createOffer(
+                offerOptions
+            ).then(
+                function (pc1desc) {
+                    console.log('createOffer ok');
+                    pc2.setRemoteDescription(pc1desc).then(function () {
+                        console.log('pc2.setRemoteDescription ok');
+                        pc1.setLocalDescription(pc1desc).then(function () {
+                            console.log('pc1.setLocalDescriptio ok'); console.log(pc1desc);
+                            pc2.createAnswer().then(
+                                function (pc2desc) {
+                                    console.log('createAnswer ok');
+                                    pc2.setLocalDescription(pc2desc).then(function () {
+                                        console.log('pc2.setLocalDescription ok'); console.log(pc2desc);
+                                        pc1.setRemoteDescription(pc2.localDescription).then(function () { console.log('pc1.setRemoteDescription ok'); }, function () { });
+
+                                    }, function () { }); // do onicecandidate event
+
+                                },
+                                function () { }
+                            );
+                        }, function () { }); // do onicecandidate event
+                    }, function () { });
+                   
+                },
+                function () { }
+                );
+        }
+
+    </script>
+</body>
+</html>
