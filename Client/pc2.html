@@ -8,9 +8,10 @@
     <script src="http://127.0.0.1:2001/signalr/hubs"></script>
 </head>
 <body>
+    <video id="localVideo" autoplay muted playsinline style="width:300px;height:300px"></video>
     <video id="remoteVideo" autoplay playsinline style="width:300px;height:300px"></video>
     <br />
-    
+    <button onclick="start()"> 1- Start</button><br />
     <button onclick="CreateRTCPeerConnection2()"> 2- Create RTCPeerConnection pc2</button><br />
     <button onclick="pc2_createAnswer()"> 6- pc2.createAnswer</button><br />
     <button onclick="pc1_setRemoteDescription()"> 7- pc1.setRemoteDescription</button><br />
@@ -19,7 +20,9 @@
     <script type="text/javascript">
         var msgIndex = 0;
         var pc2;
+        var localStream;
         var pc2desc;
+        var localVideo = document.getElementById('localVideo');
         var remoteVideo = document.getElementById('remoteVideo');
 
         $.connection.hub.url = "http://127.0.0.1:2001/signalr";
@@ -37,7 +40,7 @@
             console.log('msgreceived');
             console.log(msg)
             if (msg.Type == 'desc') {
-                var desc = new RTCSessionDescription(msg.Data);                
+                var desc = new RTCSessionDescription(msg.Data);
                 pc2.setRemoteDescription(desc).then(function () {
                     console.log('pc2.setRemoteDescription ok');
                 }, function (err) { console.log('pc2.setRemoteDescription err ' + err); });
@@ -64,12 +67,33 @@
                     sendmsg('candidate', e.candidate);
                 }
             };
+            for (const track of localStream.getTracks()) {
+                console.log('addTrack');
+                console.log(track);
+                pc2.addTrack(track, localStream);
+            };
+
             pc2.ontrack = function (e) {
                 console.log('ontrack');
                 console.log(e);
                 remoteVideo.srcObject = e.streams[0]
             }
             pc2.oniceconnectionstatechange = function (e) { console.log('pc2.oniceconnectionstatechange'); console.log(e); };
+        }
+        function start() {
+            navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: { noiseSuppression: true }
+            })
+                .then(function (stream) {
+                    console.log('getUserMedia');
+                    console.log(stream);
+                    localVideo.srcObject = stream;
+                    localStream = stream;
+                })
+                .catch(function (e) {
+                    alert('getUserMedia() error: ' + e.name);
+                });
         }
 
         function pc2_createAnswer() {
@@ -91,7 +115,7 @@
         }
 
         function pc1_setRemoteDescription() {
-            sendmsg('desc', pc2desc )
+            sendmsg('desc', pc2desc)
         }
 
         function sendmsg(type, data) {

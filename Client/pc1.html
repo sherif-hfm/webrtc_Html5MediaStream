@@ -9,17 +9,20 @@
 </head>
 <body>
     <video id="localVideo" autoplay muted playsinline style="width:300px;height:300px"></video>
+    <video id="remoteVideo" autoplay playsinline style="width:300px;height:300px"></video>
     <br />
     <button onclick="start()"> 1- Start</button><br />
-    <button onclick="CreateRTCPeerConnection1()"> 2- Create RTCPeerConnection pc1</button><br />    
+    <button onclick="CreateRTCPeerConnection1()"> 2- Create RTCPeerConnection pc1</button><br />
     <button onclick="Pc1_CreateOffer()"> 3- pc1 CreateOffer</button><br />
     <button onclick="pc2_setRemoteDescription()"> 4- pc2.setRemoteDescription</button><br />
     <button onclick="pc1_setLocalDescription()"> 5- pc1.setLocalDescription</button><br />
 
     <script type="text/javascript">
+        console.log(navigator.mediaDevices.getSupportedConstraints());
         /*https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Signaling_and_video_calling */
         var msgIndex = 0;
         var localStream;
+        var remoteStream = new MediaStream();
         var pc1;
         var pc1desc;
         var offerOptions = {
@@ -27,6 +30,8 @@
             offerToReceiveVideo: 1
         };
         var localVideo = document.getElementById('localVideo');
+        var remoteVideo = document.getElementById('remoteVideo');
+        
         $.connection.hub.url = "http://127.0.0.1:2001/signalr";
         $.connection.hub.qs = { "name": 'pc1' };
         // Declare a proxy to reference the hub.
@@ -61,14 +66,17 @@
 
         function start() {
             navigator.mediaDevices.getUserMedia({
-                video: true
+                video: true,
+                audio: { noiseSuppression:true}
             })
                 .then(function (stream) {
+                    console.log('getUserMedia');
+                    console.log(stream);
                     localVideo.srcObject = stream;
                     localStream = stream;
                 })
                 .catch(function (e) {
-                    alert('getUserMedia() error: ' + e.name);
+                    alert('getUserMedia() error: ' + e);
                 });
         }
 
@@ -88,6 +96,20 @@
                 console.log(track);
                 pc1.addTrack(track, localStream);
             };
+
+            pc1.ontrack = function (e) {
+                console.log('ontrack');
+                console.log(e);
+                if (remoteVideo.srcObject) {
+                    remoteVideo.srcObject.addTrack(e.track)
+                }
+                else {
+                    remoteVideo.srcObject = e.streams[0]
+                }                
+                //remoteVideo.srcObject = e.streams[0]
+                //remoteStream.addTrack(e.track);
+                //remoteVideo.srcObject = remoteStream;
+            }
             pc1.oniceconnectionstatechange = function (e) { console.log('pc1.oniceconnectionstatechange'); console.log(e); };
         }
 
