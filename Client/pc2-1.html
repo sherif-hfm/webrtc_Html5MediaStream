@@ -1,0 +1,148 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <script src="http://127.0.0.1:2001/Scripts/jquery-1.6.4.min.js"></script>
+    <script src="http://127.0.0.1:2001/Scripts/jquery.signalR-2.4.1.min.js"></script>
+    <script src="http://127.0.0.1:2001/signalr/hubs"></script>
+</head>
+<body>
+    <video id="localVideo" autoplay muted playsinline style="width:300px;height:300px"></video>
+    <video id="remoteVideo" autoplay playsinline style="width:300px;height:300px"></video>
+    <br />
+    <button onclick="start()"> 1- Start</button><br />
+    <button onclick="CreateRTCPeerConnection1()"> 2- Create RTCPeerConnection pc1</button><br />
+    <button onclick="Pc1_CreateOffer()"> 3- pc1 CreateOffer</button><br />
+    <button onclick="pc2_setRemoteDescription()"> 4- pc2.setRemoteDescription</button><br />
+    <button onclick="pc1_setLocalDescription()"> 5- pc1.setLocalDescription</button><br />
+
+    <script type="text/javascript">
+        console.log(navigator.mediaDevices.getSupportedConstraints());
+        /*https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Signaling_and_video_calling */
+        var msgIndex = 0;
+        var localStream;
+        var remoteStream = new MediaStream();
+        var pc1;
+        var pc1desc;
+        var offerOptions = {
+            offerToReceiveAudio: 1,
+            offerToReceiveVideo: 1
+        };
+        var localVideo = document.getElementById('localVideo');
+        var remoteVideo = document.getElementById('remoteVideo');
+        
+        $.connection.hub.url = "http://127.0.0.1:2001/signalr";
+        $.connection.hub.qs = { "name": 'pc1' };
+        // Declare a proxy to reference the hub.
+        var hub1 = $.connection.hub1;
+        var client = $.connection.hub.start();
+        client.done(function () {
+            console.log('hub start done');
+        });
+        client.fail(function () {
+            console.log('Could not connect');
+        });
+
+        hub1.client.msgreceived = function (msg) {
+            console.log('msgreceived');
+            console.log(msg);
+            if (msg.Type == 'desc') {
+                var desc = new RTCSessionDescription(msg.Data);
+                pc1.setRemoteDescription(desc).then(function () {
+                    console.log('pc1.setRemoteDescription ok');
+                }, function (err) { console.log('pc1.setRemoteDescription err ' + err); });
+            }
+            if (msg.Type == 'candidate') {
+                if (msg.Data) {
+                    try {
+                        var candidate = new RTCIceCandidate(msg.Data);
+                        pc1.addIceCandidate(candidate).then(function () { console.log('pc1.addIceCandidate ok'); }, function (err) { console.log('pc1.addIceCandidate err ' + err); });
+                    }
+                    catch (err) { console.log('new RTCIceCandidate err ' + err); }
+                }
+            }
+        }
+
+        function start() {
+            navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: { noiseSuppression:true}
+            })
+                .then(function (stream) {
+                    console.log('getUserMedia');
+                    console.log(stream);
+                    //localVideo.srcObject = stream;
+                    localStream = stream;
+                })
+                .catch(function (e) {
+                    alert('getUserMedia() error: ' + e);
+                });
+        }
+
+        function CreateRTCPeerConnection1() {
+
+            pc1 = new RTCPeerConnection(null);
+            pc1.onicecandidate = function (e) {
+                console.log('pc1 onicecandidate');
+                console.log(e.candidate);
+                if (e.candidate) {
+                    sendmsg('candidate', e.candidate)
+                }
+            }
+
+            for (const track of localStream.getTracks()) {
+                console.log('addTrack');
+                console.log(track);
+                pc1.addTrack(track, localStream);
+            };
+
+            pc1.ontrack = function (e) {
+                console.log('ontrack');
+                console.log(e);
+                if (remoteVideo.srcObject) {
+                    remoteVideo.srcObject.addTrack(e.track)
+                }
+                else {
+                    remoteVideo.srcObject = e.streams[0]
+                }                
+                //remoteVideo.srcObject = e.streams[0]
+                //remoteStream.addTrack(e.track);
+                //remoteVideo.srcObject = remoteStream;
+            }
+            pc1.oniceconnectionstatechange = function (e) { console.log('pc1.oniceconnectionstatechange'); console.log(e); };
+        }
+
+        function Pc1_CreateOffer() {
+            pc1.createOffer(
+                offerOptions
+            ).then(function (desc) {
+                console.log('createOffer ok');
+                pc1desc = desc;
+            }, function (err) {
+                console.log('createOffer err ' + err);
+            });
+        }
+
+        function pc2_setRemoteDescription() {
+            sendmsg('desc', pc1desc);
+        }
+
+        function pc1_setLocalDescription() {
+            pc1.setLocalDescription(pc1desc).then(function () {
+                console.log('pc1.setLocalDescription');
+            }, function (err) {
+                console.log('pc1.setLocalDescription err ' + err);
+            });
+        }
+
+        function sendmsg(type, data) {
+            msgIndex++;
+            console.log('sendmsg');
+            console.log({ msgIndex: msgIndex, To: "pc2", Type: type, Data: data });
+            hub1.server.sendMsg({ msgIndex: msgIndex, To: "pc2", Type: type, Data: data });
+        }
+
+    </script>
+</body>
+</html>

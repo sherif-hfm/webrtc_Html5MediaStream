@@ -67,11 +67,11 @@
                     sendmsg('candidate', e.candidate);
                 }
             };
-            for (const track of localStream.getTracks()) {
-                console.log('addTrack');
-                console.log(track);
-                pc2.addTrack(track, localStream);
-            };
+            //for (const track of localStream.getTracks()) {
+            //    console.log('addTrack');
+            //    console.log(track);
+            //    pc2.addTrack(track, localStream);
+            //};
 
             pc2.ontrack = function (e) {
                 console.log('ontrack');
@@ -81,19 +81,19 @@
             pc2.oniceconnectionstatechange = function (e) { console.log('pc2.oniceconnectionstatechange'); console.log(e); };
         }
         function start() {
-            navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: { noiseSuppression: true }
-            })
-                .then(function (stream) {
-                    console.log('getUserMedia');
-                    console.log(stream);
-                    localVideo.srcObject = stream;
-                    localStream = stream;
-                })
-                .catch(function (e) {
-                    alert('getUserMedia() error: ' + e.name);
-                });
+            //navigator.mediaDevices.getUserMedia({
+            //    video: true,
+            //    audio: { noiseSuppression: true }
+            //})
+            //    .then(function (stream) {
+            //        console.log('getUserMedia');
+            //        console.log(stream);
+            //        //localVideo.srcObject = stream;
+            //        localStream = stream;
+            //    })
+            //    .catch(function (e) {
+            //        alert('getUserMedia() error: ' + e.name);
+            //    });
         }
 
         function pc2_createAnswer() {
