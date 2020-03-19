@@ -72,8 +72,10 @@
     <Content Include="index2.js" />
     <Content Include="index3.html" />
     <Content Include="index4.html" />
-    <Content Include="pc1.html" />
-    <Content Include="pc2.html" />
+    <Content Include="pc2-1.html" />
+    <Content Include="pc1-1.html" />
+    <Content Include="pc2-2.html" />
+    <Content Include="pc1-2.html" />
     <Content Include="Web.config" />
   </ItemGroup>
   <ItemGroup>

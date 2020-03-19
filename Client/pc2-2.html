@@ -11,11 +11,6 @@
     <video id="localVideo" autoplay muted playsinline style="width:300px;height:300px"></video>
     <video id="remoteVideo" autoplay playsinline style="width:300px;height:300px"></video>
     <br />
-    <button onclick="start()"> 1- Start</button><br />
-    <button onclick="CreateRTCPeerConnection2()"> 2- Create RTCPeerConnection pc2</button><br />
-    <button onclick="pc2_createAnswer()"> 6- pc2.createAnswer</button><br />
-    <button onclick="pc1_setRemoteDescription()"> 7- pc1.setRemoteDescription</button><br />
-    <button onclick="pc2_setLocalDescription()"> 8- pc2.setLocalDescription</button><br />
 
     <script type="text/javascript">
         var msgIndex = 0;
@@ -36,29 +31,28 @@
         client.fail(function () {
             console.log('Could not connect');
         });
-        hub1.client.msgreceived = function (msg) {
-            console.log('msgreceived');
-            console.log(msg)
-            if (msg.Type == 'desc') {
-                var desc = new RTCSessionDescription(msg.Data);
-                pc2.setRemoteDescription(desc).then(function () {
-                    console.log('pc2.setRemoteDescription ok');
-                }, function (err) { console.log('pc2.setRemoteDescription err ' + err); });
-            }
-            if (msg.Type == 'candidate') {
-                if (msg.Data) {
-                    try {
-                        var candidate = new RTCIceCandidate(msg.Data);
-                        pc2.addIceCandidate(candidate).then(function () {
-                            console.log('pc2.addIceCandidate ok');
-                        }, function (err) { console.log('pc2.addIceCandidate err ' + err); });
-                    }
-                    catch (err) { console.log('new RTCIceCandidate err ' + err); }
-                }
-            }
+        hub1.client.msgreceived = msgreceived;
+
+        start();
+
+        function start() {
+            navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: { noiseSuppression: true }
+            })
+                .then(function (stream) {
+                    console.log('getUserMedia');
+                    console.log(stream);
+                    //localVideo.srcObject = stream;
+                    localStream = stream;
+                    CreateRTCPeerConnection();
+                })
+                .catch(function (e) {
+                    alert('getUserMedia() error: ' + e.name);
+                });
         }
 
-        function CreateRTCPeerConnection2() {
+        function CreateRTCPeerConnection() {
             pc2 = new RTCPeerConnection(null);
             pc2.onicecandidate = function (e) {
                 console.log('pc2 onicecandidate');
@@ -80,33 +74,19 @@
             }
             pc2.oniceconnectionstatechange = function (e) { console.log('pc2.oniceconnectionstatechange'); console.log(e); };
         }
-        function start() {
-            //navigator.mediaDevices.getUserMedia({
-            //    video: true,
-            //    audio: { noiseSuppression: true }
-            //})
-            //    .then(function (stream) {
-            //        console.log('getUserMedia');
-            //        console.log(stream);
-            //        //localVideo.srcObject = stream;
-            //        localStream = stream;
-            //    })
-            //    .catch(function (e) {
-            //        alert('getUserMedia() error: ' + e.name);
-            //    });
-        }
 
-        function pc2_createAnswer() {
+        function createAnswer() {
             pc2.createAnswer().then(
                 function (desc) {
                     console.log('pc2.createAnswer ok');
+                    //sendmsg('ReadyForCandidates', null);
                     pc2desc = desc;
                 }
                 ,
                 function (err) { console.log('pc2.createAnswer err ' + err); })
         }
 
-        function pc2_setLocalDescription() {
+        function setLocalDescription() {
             pc2.setLocalDescription(pc2desc).then(function () {
                 console.log('pc2.setLocalDescription ok');
             }, function (err) {
@@ -114,7 +94,7 @@
             });
         }
 
-        function pc1_setRemoteDescription() {
+        function SendLocalDescription() {
             sendmsg('desc', pc2desc)
         }
 
@@ -125,6 +105,36 @@
             hub1.server.sendMsg({ msgIndex: msgIndex, To: "pc1", Type: type, Data: data });
         }
 
+        function msgreceived(msg) {
+            console.log('msgreceived');
+            console.log(msg)
+            if (msg.Type == 'desc') {
+                var desc = new RTCSessionDescription(msg.Data);
+                pc2.setRemoteDescription(desc).then(function () {
+                    console.log('pc2.setRemoteDescription ok');
+                    sendmsg('RemoteDescriptionReceived', null);
+                    createAnswer();
+                    
+                }, function (err) { console.log('pc2.setRemoteDescription err ' + err); });
+            }
+            if (msg.Type == 'candidate') {
+                if (msg.Data) {
+                    try {
+                        var candidate = new RTCIceCandidate(msg.Data);
+                        pc2.addIceCandidate(candidate).then(function () {
+                            console.log('pc2.addIceCandidate ok');
+                        }, function (err) { console.log('pc2.addIceCandidate err ' + err); });
+                    }
+                    catch (err) { console.log('new RTCIceCandidate err ' + err); }
+                }
+            }
+            if (msg.Type == 'ReadyForDesc') {
+                SendLocalDescription();
+            }
+            if (msg.Type == 'ReadyForCandidates') {
+                setLocalDescription();
+            }
+        }
 
     </script>
 </body>
